@@ -22,7 +22,7 @@ class ResidentController extends Controller
         $this->rejectCondominiumIdFromRequest($request);
 
         $residents = Resident::query()
-            ->with(['user', 'apartment'])
+            ->with(['user', 'apartment.unitType:id,name'])
             ->whereHas('apartment', fn ($q) => $q->where('condominium_id', $activeCondominiumId))
             ->orderByDesc('id')
             ->get();
@@ -74,7 +74,7 @@ class ResidentController extends Controller
             throw $exception;
         }
 
-        return response()->json($resident->fresh()->load(['user', 'apartment']), 201);
+        return response()->json($resident->fresh()->load(['user', 'apartment.unitType:id,name']), 201);
     }
 
     public function update(Request $request, int $id): JsonResponse
@@ -83,7 +83,7 @@ class ResidentController extends Controller
         $this->rejectCondominiumIdFromRequest($request);
 
         $resident = Resident::query()
-            ->with(['user', 'apartment'])
+            ->with(['user', 'apartment.unitType:id,name'])
             ->whereHas('apartment', fn ($q) => $q->where('condominium_id', $activeCondominiumId))
             ->where('id', $id)
             ->firstOrFail();
@@ -147,7 +147,7 @@ class ResidentController extends Controller
             throw $exception;
         }
 
-        return response()->json($resident->fresh()->load(['user', 'apartment']));
+        return response()->json($resident->fresh()->load(['user', 'apartment.unitType:id,name']));
     }
 
     private function resolveActiveCondominiumId(Request $request): int

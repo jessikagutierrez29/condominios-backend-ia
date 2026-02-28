@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Core\CondominiumController;
+use App\Http\Controllers\Core\OperativeController;
 use App\Http\Controllers\Core\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -22,4 +23,11 @@ Route::middleware(['auth:api', 'super_admin'])->group(function () {
 Route::middleware(['auth:api', 'manage.users', 'resolve.active.condominium'])->group(function () {
     Route::get('/users', [UserController::class, 'index']);
     Route::post('/users', [UserController::class, 'store']);
+});
+
+Route::middleware(['auth:api', 'resolve.active.condominium'])->group(function () {
+    Route::get('/operatives/roles', [OperativeController::class, 'roles']);
+    Route::get('/operatives', [OperativeController::class, 'index']);
+    Route::post('/operatives', [OperativeController::class, 'store']);
+    Route::put('/operatives/{id}', [OperativeController::class, 'update']);
 });

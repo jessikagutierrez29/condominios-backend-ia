@@ -18,17 +18,23 @@ class ResolveActiveCondominiumFromUserRole
             ], 401);
         }
 
-        // Platform admin: no está atado a un tenant.
+        // Platform admin: can operate globally and may set a temporary tenant by header.
         if ($user->is_platform_admin) {
+            $platformCondominiumId = (int) $request->header('X-Active-Condominium-Id', 0);
+
+            if ($platformCondominiumId > 0) {
+                $request->attributes->set('activeCondominiumId', $platformCondominiumId);
+            }
+
             return $next($request);
         }
 
-        // Tenant user: requiere resolución de condominio desde user_role.
+        // Tenant user: resolve condominium from user_role.
         $role = $user->roles()->first();
 
         if (! $role || ! isset($role->pivot->condominium_id)) {
             return response()->json([
-                'message' => 'El usuario no tiene relación en user_role.',
+                'message' => 'El usuario no tiene relacion en user_role.',
             ], 404);
         }
 

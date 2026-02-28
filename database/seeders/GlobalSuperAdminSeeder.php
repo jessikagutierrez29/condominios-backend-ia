@@ -27,6 +27,7 @@ class GlobalSuperAdminSeeder extends Seeder
                 'document_number' => '9000000001',
                 'password' => Hash::make('12345678'),
                 'is_active' => true,
+                'is_platform_admin' => true,
             ]
         );
 
@@ -34,4 +35,3 @@ class GlobalSuperAdminSeeder extends Seeder
         DB::table('user_role')->where('user_id', $user->id)->delete();
     }
 }
-

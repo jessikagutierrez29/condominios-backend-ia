@@ -18,12 +18,13 @@ class ResolveActiveCondominiumFromUserRole
             ], 401);
         }
 
-        $role = $user->roles()->first();
-
-        // Usuario global: no requiere condominio activo.
-        if ($role && $role->name === 'super_admin') {
+        // Platform admin: no está atado a un tenant.
+        if ($user->is_platform_admin) {
             return $next($request);
         }
+
+        // Tenant user: requiere resolución de condominio desde user_role.
+        $role = $user->roles()->first();
 
         if (! $role || ! isset($role->pivot->condominium_id)) {
             return response()->json([
@@ -36,4 +37,3 @@ class ResolveActiveCondominiumFromUserRole
         return $next($request);
     }
 }
-

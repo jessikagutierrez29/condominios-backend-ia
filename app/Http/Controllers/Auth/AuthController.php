@@ -64,11 +64,24 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         /** @var \App\Models\User $user */
-        $user = $request->user()->load('roles');
+        $user = $request->user();
 
+        // Platform admin: usuario global del SaaS, sin aislamiento por tenant.
+        if ($user->is_platform_admin) {
+            return response()->json([
+                'id' => $user->id,
+                'full_name' => $user->full_name,
+                'email' => $user->email,
+                'role' => 'super_admin',
+                'condominium_id' => null,
+            ]);
+        }
+
+        // Tenant user: debe venir de user_role y operar dentro de un condominio.
+        $user->load('roles');
         $role = $user->roles->first();
 
-        if (! $role) {
+        if (! $role || ! isset($role->pivot->condominium_id)) {
             return response()->json([
                 'message' => 'El usuario no tiene rol asignado en user_role.',
             ], 404);

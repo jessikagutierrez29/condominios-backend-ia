@@ -5,6 +5,7 @@ use App\Http\Controllers\Core\CondominiumController;
 use App\Http\Controllers\Core\DashboardController;
 use App\Http\Controllers\Core\OperativeController;
 use App\Http\Controllers\Core\ResidentController;
+use App\Http\Controllers\Core\UnitTypeController;
 use App\Http\Controllers\Core\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -38,4 +39,9 @@ Route::middleware(['auth:api', 'resolve.active.condominium'])->group(function ()
     Route::get('/residents', [ResidentController::class, 'index']);
     Route::post('/residents', [ResidentController::class, 'store']);
     Route::put('/residents/{id}', [ResidentController::class, 'update']);
+
+    Route::get('/unit-types', [UnitTypeController::class, 'index']);
+    Route::post('/unit-types', [UnitTypeController::class, 'store']);
+    Route::put('/unit-types/{id}', [UnitTypeController::class, 'update']);
+    Route::patch('/unit-types/{id}/toggle', [UnitTypeController::class, 'toggle']);
 });

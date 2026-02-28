@@ -8,6 +8,7 @@ use App\Http\Controllers\Core\OperativeController;
 use App\Http\Controllers\Core\ResidentController;
 use App\Http\Controllers\Core\UnitTypeController;
 use App\Http\Controllers\Core\UserController;
+use App\Http\Controllers\Core\VisitController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
@@ -50,4 +51,8 @@ Route::middleware(['auth:api', 'resolve.active.condominium'])->group(function ()
     Route::post('/apartments', [ApartmentController::class, 'store']);
     Route::put('/apartments/{id}', [ApartmentController::class, 'update']);
     Route::patch('/apartments/{id}/toggle', [ApartmentController::class, 'toggle']);
+
+    Route::get('/visits', [VisitController::class, 'index']);
+    Route::post('/visits', [VisitController::class, 'store']);
+    Route::patch('/visits/{id}/checkout', [VisitController::class, 'checkout']);
 });

@@ -16,7 +16,8 @@ use Illuminate\Validation\ValidationException;
 
 class OperativeController extends Controller
 {
-    private const ADMIN_ROLE_NAMES = ['super_admin', 'admin_condominio', 'super administrador'];
+    private const ALWAYS_BLOCKED_ROLE_NAMES = ['super_admin'];
+    private const TENANT_BLOCKED_ADMIN_ROLE_NAMES = ['admin_condominio'];
 
     public function index(Request $request): JsonResponse
     {
@@ -35,11 +36,19 @@ class OperativeController extends Controller
         return response()->json($payload);
     }
 
-    public function roles(): JsonResponse
+    public function roles(Request $request): JsonResponse
     {
+        $isPlatformAdmin = (bool) $request->user()?->is_platform_admin;
+        $blockedRoles = $isPlatformAdmin
+            ? self::ALWAYS_BLOCKED_ROLE_NAMES
+            : array_values(array_unique([
+                ...self::ALWAYS_BLOCKED_ROLE_NAMES,
+                ...self::TENANT_BLOCKED_ADMIN_ROLE_NAMES,
+            ]));
+
         $roles = Role::query()
             ->where('is_active', true)
-            ->whereNotIn('name', self::ADMIN_ROLE_NAMES)
+            ->whereNotIn('name', $blockedRoles)
             ->orderBy('name')
             ->get(['id', 'name', 'description']);
 
@@ -69,7 +78,10 @@ class OperativeController extends Controller
             'contract_start_date' => ['nullable', 'date'],
         ]);
 
-        $role = $this->resolveOperativeRole((int) $validated['role_id']);
+        $role = $this->resolveOperativeRole(
+            (int) $validated['role_id'],
+            (bool) $request->user()?->is_platform_admin
+        );
 
         try {
             $operative = DB::transaction(function () use ($validated, $activeCondominiumId, $role) {
@@ -171,7 +183,10 @@ class OperativeController extends Controller
 
         $selectedRole = null;
         if (isset($validated['role_id'])) {
-            $selectedRole = $this->resolveOperativeRole((int) $validated['role_id']);
+            $selectedRole = $this->resolveOperativeRole(
+                (int) $validated['role_id'],
+                (bool) $request->user()?->is_platform_admin
+            );
         }
 
         DB::transaction(function () use ($operative, $validated, $activeCondominiumId, $selectedRole) {
@@ -249,11 +264,17 @@ class OperativeController extends Controller
         }
     }
 
-    private function resolveOperativeRole(int $roleId): Role
+    private function resolveOperativeRole(int $roleId, bool $isPlatformAdmin): Role
     {
         $role = Role::query()->findOrFail($roleId);
 
-        if (in_array($role->name, self::ADMIN_ROLE_NAMES, true)) {
+        if (in_array($role->name, self::ALWAYS_BLOCKED_ROLE_NAMES, true)) {
+            throw ValidationException::withMessages([
+                'role_id' => ['No se permite asignar roles administrativos a operativos.'],
+            ]);
+        }
+
+        if (! $isPlatformAdmin && in_array($role->name, self::TENANT_BLOCKED_ADMIN_ROLE_NAMES, true)) {
             throw ValidationException::withMessages([
                 'role_id' => ['No se permite asignar roles administrativos a operativos.'],
             ]);

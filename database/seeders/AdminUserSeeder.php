@@ -13,11 +13,11 @@ class AdminUserSeeder extends Seeder
 {
     public function run(): void
     {
-        $role = Role::query()->where('name', 'super administrador')->first();
+        $role = Role::query()->where('name', 'admin_condominio')->first();
         $condominium = Condominium::query()->where('tenant_code', 'la-pastorita')->first();
 
         if (! $role || ! $condominium) {
-            throw new RuntimeException('No existe el rol super administrador o el condominio la-pastorita.');
+            throw new RuntimeException('No existe el rol admin_condominio o el condominio la-pastorita.');
         }
 
         $user = User::query()->updateOrCreate(
@@ -35,4 +35,3 @@ class AdminUserSeeder extends Seeder
         ]);
     }
 }
-

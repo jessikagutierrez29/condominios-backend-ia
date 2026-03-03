@@ -5,6 +5,8 @@ use App\Http\Controllers\Core\ApartmentController;
 use App\Http\Controllers\Core\CondominiumController;
 use App\Http\Controllers\Core\CorrespondenceController;
 use App\Http\Controllers\Core\DashboardController;
+use App\Http\Controllers\Core\EmergencyTypeController;
+use App\Http\Controllers\Core\HealthIncidentController;
 use App\Http\Controllers\Core\OperativeController;
 use App\Http\Controllers\Core\ResidentController;
 use App\Http\Controllers\Core\UnitTypeController;
@@ -78,6 +80,16 @@ Route::middleware(['auth:api', 'resolve.active.condominium'])->group(function ()
     Route::get('/vehicle-incidents', [VehicleIncidentController::class, 'index']);
     Route::post('/vehicle-incidents', [VehicleIncidentController::class, 'store']);
     Route::patch('/vehicle-incidents/{id}/resolve', [VehicleIncidentController::class, 'resolve']);
+
+    Route::get('/emergency-types', [EmergencyTypeController::class, 'index']);
+    Route::post('/emergency-types', [EmergencyTypeController::class, 'store']);
+    Route::put('/emergency-types/{id}', [EmergencyTypeController::class, 'update']);
+    Route::patch('/emergency-types/{id}/toggle', [EmergencyTypeController::class, 'toggle']);
+
+    Route::get('/emergencies', [HealthIncidentController::class, 'index']);
+    Route::post('/emergencies', [HealthIncidentController::class, 'store']);
+    Route::patch('/emergencies/{id}/progress', [HealthIncidentController::class, 'progress']);
+    Route::patch('/emergencies/{id}/close', [HealthIncidentController::class, 'close']);
 
     Route::get('/correspondences', [CorrespondenceController::class, 'index']);
     Route::post('/correspondences', [CorrespondenceController::class, 'store']);

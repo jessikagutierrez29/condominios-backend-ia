@@ -9,17 +9,24 @@ class HealthIncident extends Model
 {
     use HasFactory;
 
+    public const STATUS_OPEN = 'OPEN';
+    public const STATUS_IN_PROGRESS = 'IN_PROGRESS';
+    public const STATUS_CLOSED = 'CLOSED';
+
     protected $fillable = [
-        'condominium_id',
         'emergency_type_id',
+        'reported_by_id',
         'event_type',
         'event_location',
         'description',
         'event_date',
+        'status',
+        'resolved_at',
     ];
 
     protected $casts = [
         'event_date' => 'datetime',
+        'resolved_at' => 'datetime',
     ];
 
     /*Relationships*/
@@ -32,6 +39,11 @@ class HealthIncident extends Model
     public function emergencyType()
     {
         return $this->belongsTo(EmergencyType::class);
+    }
+
+    public function reportedBy()
+    {
+        return $this->belongsTo(User::class, 'reported_by_id');
     }
 
     /*Scopes*/

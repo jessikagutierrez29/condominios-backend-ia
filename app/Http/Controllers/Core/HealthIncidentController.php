@@ -19,7 +19,7 @@ class HealthIncidentController extends Controller
         $incidents = HealthIncident::query()
             ->with([
                 'emergencyType:id,name,level',
-                'reportedBy:id,name',
+                'reportedBy:id,full_name',
             ])
             ->where('condominium_id', $activeCondominiumId)
             ->orderByDesc('event_date')
@@ -65,7 +65,7 @@ class HealthIncidentController extends Controller
         return response()->json(
             $incident->load([
                 'emergencyType:id,name,level',
-                'reportedBy:id,name',
+                'reportedBy:id,full_name',
             ]),
             201
         );
@@ -98,7 +98,7 @@ class HealthIncidentController extends Controller
 
         return response()->json([
             'message' => 'Emergencia actualizada a en progreso.',
-            'data' => $incident->fresh(['emergencyType:id,name,level', 'reportedBy:id,name']),
+            'data' => $incident->fresh(['emergencyType:id,name,level', 'reportedBy:id,full_name']),
         ]);
     }
 
@@ -124,7 +124,7 @@ class HealthIncidentController extends Controller
 
         return response()->json([
             'message' => 'Emergencia cerrada correctamente.',
-            'data' => $incident->fresh(['emergencyType:id,name,level', 'reportedBy:id,name']),
+            'data' => $incident->fresh(['emergencyType:id,name,level', 'reportedBy:id,full_name']),
         ]);
     }
 

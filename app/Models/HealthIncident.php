@@ -14,6 +14,7 @@ class HealthIncident extends Model
     public const STATUS_CLOSED = 'CLOSED';
 
     protected $fillable = [
+        'condominium_id',
         'emergency_type_id',
         'reported_by_id',
         'event_type',

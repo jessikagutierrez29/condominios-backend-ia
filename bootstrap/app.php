@@ -3,6 +3,8 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use App\Http\Middleware\EnsureInventoryOperationAccess;
+use App\Http\Middleware\EnsureInventorySettingsAccess;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\EnsureUserManagementAccess;
 use App\Http\Middleware\ResolveActiveCondominiumFromUserRole;
@@ -20,6 +22,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'super_usuario' => EnsureSuperAdmin::class,
             'manage.users' => EnsureUserManagementAccess::class,
             'resolve.active.condominium' => ResolveActiveCondominiumFromUserRole::class,
+            'inventory.operation' => EnsureInventoryOperationAccess::class,
+            'inventory.settings' => EnsureInventorySettingsAccess::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

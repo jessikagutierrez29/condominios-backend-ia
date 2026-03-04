@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Carbon;
 
 class InventoryMovement extends Model
 {
@@ -13,8 +14,14 @@ class InventoryMovement extends Model
         'product_id',
         'type',
         'quantity',
+        'movement_date',
         'registered_by_id',
         'observations',
+    ];
+
+    protected $casts = [
+        'quantity' => 'integer',
+        'movement_date' => 'date',
     ];
 
     /* Relationships*/
@@ -33,9 +40,18 @@ class InventoryMovement extends Model
 
     protected static function booted()
     {
+        static::creating(function ($movement) {
+            if (empty($movement->movement_date)) {
+                $movement->movement_date = Carbon::today()->toDateString();
+            }
+        });
+
         static::created(function ($movement) {
 
             $product = $movement->product;
+            if (! $product || $product->isAsset()) {
+                return;
+            }
 
             if ($movement->type === 'entry') {
                 $product->increaseStock($movement->quantity);

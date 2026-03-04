@@ -12,7 +12,11 @@ use App\Http\Controllers\Core\CleaningScheduleController;
 use App\Http\Controllers\Core\DashboardController;
 use App\Http\Controllers\Core\EmergencyTypeController;
 use App\Http\Controllers\Core\HealthIncidentController;
+use App\Http\Controllers\Core\InventoryController;
+use App\Http\Controllers\Core\InventoryCategoryController;
+use App\Http\Controllers\Core\InventoryMovementController;
 use App\Http\Controllers\Core\OperativeController;
+use App\Http\Controllers\Core\ProductController;
 use App\Http\Controllers\Core\ResidentController;
 use App\Http\Controllers\Core\UnitTypeController;
 use App\Http\Controllers\Core\UserController;
@@ -134,4 +138,24 @@ Route::middleware(['auth:api', 'resolve.active.condominium'])->group(function ()
     // Compatibilidad con frontend actual
     Route::post('/cleaning-records/{recordId}/checklist-items', [CleaningChecklistItemController::class, 'storeByRecord']);
     Route::patch('/cleaning-records/{recordId}/checklist-items/{itemId}', [CleaningChecklistItemController::class, 'updateByRecord']);
+
+    Route::get('/products', [ProductController::class, 'index'])->middleware('inventory.operation');
+    Route::post('/products', [ProductController::class, 'store'])->middleware('inventory.settings');
+    Route::put('/products/{id}', [ProductController::class, 'update'])->middleware('inventory.settings');
+    Route::delete('/products/{id}', [ProductController::class, 'destroy'])->middleware('inventory.settings');
+    Route::get('/inventories', [InventoryController::class, 'index'])->middleware('inventory.operation');
+    Route::post('/inventories', [InventoryController::class, 'store'])->middleware('inventory.settings');
+    Route::put('/inventories/{id}', [InventoryController::class, 'update'])->middleware('inventory.settings');
+    Route::patch('/inventories/{id}/toggle', [InventoryController::class, 'toggle'])->middleware('inventory.settings');
+
+    Route::get('/inventory-categories', [InventoryCategoryController::class, 'index'])->middleware('inventory.operation');
+    Route::post('/inventory-categories', [InventoryCategoryController::class, 'store'])->middleware('inventory.settings');
+    Route::put('/inventory-categories/{id}', [InventoryCategoryController::class, 'update'])->middleware('inventory.settings');
+    Route::patch('/inventory-categories/{id}/toggle', [InventoryCategoryController::class, 'toggle'])->middleware('inventory.settings');
+
+    Route::get('/inventory/low-stock', [ProductController::class, 'lowStock'])->middleware('inventory.operation');
+
+    Route::post('/inventory-movements/entry', [InventoryMovementController::class, 'entry'])->middleware('inventory.operation');
+    Route::post('/inventory-movements/exit', [InventoryMovementController::class, 'exit'])->middleware('inventory.operation');
+    Route::get('/products/{id}/movements', [InventoryMovementController::class, 'historyByProduct'])->middleware('inventory.operation');
 });

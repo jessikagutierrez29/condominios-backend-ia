@@ -198,33 +198,7 @@ class CleaningRecordController extends Controller
         );
     }
 
-    public function storeChecklistItem(Request $request, int $id): JsonResponse
-    {
-        $activeCondominiumId = $this->resolveActiveCondominiumId($request);
-        $this->rejectCondominiumIdFromRequest($request);
-
-        $record = $this->resolveCleaningRecordInActiveCondominium($id, $activeCondominiumId);
-
-        if ($record->status === self::STATUS_COMPLETED) {
-            return response()->json([
-                'message' => 'No se pueden agregar items a un registro completado.',
-            ], 400);
-        }
-
-        $validated = $request->validate([
-            'item_name' => ['required', 'string', 'max:255'],
-            'completed' => ['sometimes', 'boolean'],
-        ]);
-
-        $item = $record->checklistItems()->create([
-            'item_name' => trim($validated['item_name']),
-            'completed' => (bool) ($validated['completed'] ?? false),
-        ]);
-
-        return response()->json($item, 201);
-    }
-
-    public function updateChecklistItem(Request $request, int $id, int $itemId): JsonResponse
+    public function update(Request $request, int $id): JsonResponse
     {
         $activeCondominiumId = $this->resolveActiveCondominiumId($request);
         $this->rejectCondominiumIdFromRequest($request);
@@ -232,26 +206,60 @@ class CleaningRecordController extends Controller
 
         $record = $this->resolveCleaningRecordInActiveCondominium($id, $activeCondominiumId);
 
+        $validated = $request->validate([
+            'cleaning_date' => ['sometimes', 'date'],
+            'observations' => ['sometimes', 'nullable', 'string'],
+            'cleaning_area_id' => ['sometimes', 'integer', 'exists:cleaning_areas,id'],
+            'operative_id' => ['sometimes', 'integer', 'exists:operatives,id'],
+        ]);
+
+        if ($record->status === self::STATUS_COMPLETED) {
+            if (array_key_exists('cleaning_area_id', $validated) || array_key_exists('operative_id', $validated)) {
+                return response()->json([
+                    'message' => 'No se puede cambiar area u operativo en un registro completado.',
+                ], 400);
+            }
+        }
+
+        if (array_key_exists('cleaning_area_id', $validated)) {
+            $this->resolveCleaningAreaInActiveCondominium((int) $validated['cleaning_area_id'], $activeCondominiumId);
+        }
+
+        if (array_key_exists('operative_id', $validated)) {
+            $this->resolveOperativeInActiveCondominium((int) $validated['operative_id'], $activeCondominiumId);
+        }
+
+        $record->update($validated);
+
+        return response()->json(
+            $record->fresh()->load([
+                'cleaningArea:id,condominium_id,name,description,is_active',
+                'operative:id,user_id,condominium_id,position,is_active',
+                'operative.user:id,full_name,email,document_number',
+                'registeredBy:id,full_name,email,document_number',
+                'checklistItems:id,cleaning_record_id,item_name,completed',
+            ])
+        );
+    }
+
+    public function destroy(Request $request, int $id): JsonResponse
+    {
+        $activeCondominiumId = $this->resolveActiveCondominiumId($request);
+        $this->rejectCondominiumIdFromRequest($request);
+
+        $record = $this->resolveCleaningRecordInActiveCondominium($id, $activeCondominiumId);
+
         if ($record->status === self::STATUS_COMPLETED) {
             return response()->json([
-                'message' => 'No se pueden actualizar items de un registro completado.',
+                'message' => 'No se puede eliminar un registro completado.',
             ], 400);
         }
 
-        $validated = $request->validate([
-            'completed' => ['required', 'boolean'],
+        $record->delete();
+
+        return response()->json([
+            'message' => 'Registro de aseo eliminado.',
         ]);
-
-        $item = CleaningChecklistItem::query()
-            ->where('cleaning_record_id', $record->id)
-            ->where('id', $itemId)
-            ->firstOrFail();
-
-        $item->update([
-            'completed' => (bool) $validated['completed'],
-        ]);
-
-        return response()->json($item->fresh());
     }
 
     private function resolveActiveCondominiumId(Request $request): int

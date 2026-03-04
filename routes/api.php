@@ -5,6 +5,8 @@ use App\Http\Controllers\Core\ApartmentController;
 use App\Http\Controllers\Core\CondominiumController;
 use App\Http\Controllers\Core\CorrespondenceController;
 use App\Http\Controllers\Core\CleaningAreaController;
+use App\Http\Controllers\Core\CleaningAreaChecklistController;
+use App\Http\Controllers\Core\CleaningChecklistItemController;
 use App\Http\Controllers\Core\CleaningRecordController;
 use App\Http\Controllers\Core\DashboardController;
 use App\Http\Controllers\Core\EmergencyTypeController;
@@ -100,16 +102,30 @@ Route::middleware(['auth:api', 'resolve.active.condominium'])->group(function ()
     Route::get('/cleaning-areas', [CleaningAreaController::class, 'index']);
     Route::post('/cleaning-areas', [CleaningAreaController::class, 'store']);
     Route::put('/cleaning-areas/{id}', [CleaningAreaController::class, 'update']);
+    Route::delete('/cleaning-areas/{id}', [CleaningAreaController::class, 'destroy']);
     Route::patch('/cleaning-areas/{id}/toggle', [CleaningAreaController::class, 'toggle']);
 
-    Route::get('/cleaning-areas/{id}/checklist', [CleaningAreaController::class, 'indexChecklist']);
-    Route::post('/cleaning-areas/{id}/checklist', [CleaningAreaController::class, 'storeChecklistItem']);
-    Route::delete('/cleaning-areas/{id}/checklist/{itemId}', [CleaningAreaController::class, 'destroyChecklistItem']);
+    // Checklist template por area (nuevas rutas)
+    Route::get('/cleaning-areas/{areaId}/checklists', [CleaningAreaChecklistController::class, 'index']);
+    Route::post('/cleaning-areas/{areaId}/checklists', [CleaningAreaChecklistController::class, 'store']);
+    // Compatibilidad con frontend actual
+    Route::get('/cleaning-areas/{areaId}/checklist', [CleaningAreaChecklistController::class, 'index']);
+    Route::post('/cleaning-areas/{areaId}/checklist', [CleaningAreaChecklistController::class, 'store']);
+    Route::delete('/cleaning-areas/{areaId}/checklist/{itemId}', [CleaningAreaChecklistController::class, 'destroy']);
 
     Route::get('/cleaning-records', [CleaningRecordController::class, 'index']);
     Route::post('/cleaning-records', [CleaningRecordController::class, 'store']);
     Route::get('/cleaning-records/{id}', [CleaningRecordController::class, 'show']);
+    Route::put('/cleaning-records/{id}', [CleaningRecordController::class, 'update']);
+    Route::delete('/cleaning-records/{id}', [CleaningRecordController::class, 'destroy']);
     Route::patch('/cleaning-records/{id}/complete', [CleaningRecordController::class, 'complete']);
-    Route::post('/cleaning-records/{id}/checklist-items', [CleaningRecordController::class, 'storeChecklistItem']);
-    Route::patch('/cleaning-records/{id}/checklist-items/{itemId}', [CleaningRecordController::class, 'updateChecklistItem']);
+
+    // Checklist items por registro de limpieza
+    Route::get('/checklists/{recordId}/items', [CleaningChecklistItemController::class, 'indexByRecord']);
+    Route::post('/checklists/{recordId}/items', [CleaningChecklistItemController::class, 'storeByRecord']);
+    Route::put('/items/{id}', [CleaningChecklistItemController::class, 'update']);
+    Route::delete('/items/{id}', [CleaningChecklistItemController::class, 'destroy']);
+    // Compatibilidad con frontend actual
+    Route::post('/cleaning-records/{recordId}/checklist-items', [CleaningChecklistItemController::class, 'storeByRecord']);
+    Route::patch('/cleaning-records/{recordId}/checklist-items/{itemId}', [CleaningChecklistItemController::class, 'updateByRecord']);
 });

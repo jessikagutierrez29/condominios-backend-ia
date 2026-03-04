@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Core;
 
 use App\Http\Controllers\Controller;
 use App\Models\CleaningArea;
-use App\Models\CleaningAreaChecklist;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -112,52 +111,16 @@ class CleaningAreaController extends Controller
         ]);
     }
 
-    public function indexChecklist(Request $request, int $id): JsonResponse
+    public function destroy(Request $request, int $id): JsonResponse
     {
         $activeCondominiumId = $this->resolveActiveCondominiumId($request);
         $this->rejectCondominiumIdFromRequest($request);
 
         $area = $this->resolveCleaningAreaInActiveCondominium($id, $activeCondominiumId);
-
-        return response()->json(
-            $area->checklistTemplateItems()->orderBy('id')->get()
-        );
-    }
-
-    public function storeChecklistItem(Request $request, int $id): JsonResponse
-    {
-        $activeCondominiumId = $this->resolveActiveCondominiumId($request);
-        $this->rejectCondominiumIdFromRequest($request);
-
-        $area = $this->resolveCleaningAreaInActiveCondominium($id, $activeCondominiumId);
-
-        $validated = $request->validate([
-            'item_name' => ['required', 'string', 'max:255'],
-        ]);
-
-        $item = $area->checklistTemplateItems()->create([
-            'item_name' => trim($validated['item_name']),
-        ]);
-
-        return response()->json($item, 201);
-    }
-
-    public function destroyChecklistItem(Request $request, int $id, int $itemId): JsonResponse
-    {
-        $activeCondominiumId = $this->resolveActiveCondominiumId($request);
-        $this->rejectCondominiumIdFromRequest($request);
-
-        $area = $this->resolveCleaningAreaInActiveCondominium($id, $activeCondominiumId);
-
-        $item = CleaningAreaChecklist::query()
-            ->where('cleaning_area_id', $area->id)
-            ->where('id', $itemId)
-            ->firstOrFail();
-
-        $item->delete();
+        $area->delete();
 
         return response()->json([
-            'message' => 'Item de checklist eliminado.',
+            'message' => 'Area de aseo eliminada.',
         ]);
     }
 

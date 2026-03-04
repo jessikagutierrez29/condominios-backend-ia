@@ -8,6 +8,7 @@ use App\Http\Controllers\Core\CleaningAreaController;
 use App\Http\Controllers\Core\CleaningAreaChecklistController;
 use App\Http\Controllers\Core\CleaningChecklistItemController;
 use App\Http\Controllers\Core\CleaningRecordController;
+use App\Http\Controllers\Core\CleaningScheduleController;
 use App\Http\Controllers\Core\DashboardController;
 use App\Http\Controllers\Core\EmergencyTypeController;
 use App\Http\Controllers\Core\HealthIncidentController;
@@ -119,6 +120,11 @@ Route::middleware(['auth:api', 'resolve.active.condominium'])->group(function ()
     Route::put('/cleaning-records/{id}', [CleaningRecordController::class, 'update']);
     Route::delete('/cleaning-records/{id}', [CleaningRecordController::class, 'destroy']);
     Route::patch('/cleaning-records/{id}/complete', [CleaningRecordController::class, 'complete']);
+
+    Route::get('/cleaning-schedules', [CleaningScheduleController::class, 'index']);
+    Route::post('/cleaning-schedules', [CleaningScheduleController::class, 'store']);
+    Route::put('/cleaning-schedules/{id}', [CleaningScheduleController::class, 'update']);
+    Route::delete('/cleaning-schedules/{id}', [CleaningScheduleController::class, 'destroy']);
 
     // Checklist items por registro de limpieza
     Route::get('/checklists/{recordId}/items', [CleaningChecklistItemController::class, 'indexByRecord']);

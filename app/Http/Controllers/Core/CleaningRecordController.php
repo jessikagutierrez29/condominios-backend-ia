@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\CleaningArea;
 use App\Models\CleaningChecklistItem;
 use App\Models\CleaningRecord;
+use App\Models\CleaningSchedule;
 use App\Models\Operative;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -100,7 +102,24 @@ class CleaningRecordController extends Controller
         $area = $this->resolveCleaningAreaInActiveCondominium((int) $validated['cleaning_area_id'], $activeCondominiumId);
         $operative = $this->resolveOperativeInActiveCondominium((int) $validated['operative_id'], $activeCondominiumId);
 
-        $record = DB::transaction(function () use ($request, $validated, $activeCondominiumId, $area, $operative) {
+        $scheduledChecklistItemIds = $this->resolveScheduledChecklistItemIdsForDate(
+            $activeCondominiumId,
+            (int) $area->id,
+            (string) $validated['cleaning_date']
+        );
+
+        $templateItems = $area->checklistTemplateItems()
+            ->whereIn('id', $scheduledChecklistItemIds)
+            ->orderBy('id')
+            ->get(['item_name']);
+
+        if ($templateItems->isEmpty()) {
+            return response()->json([
+                'message' => 'Esta área no tiene tareas programadas para este día.',
+            ], 422);
+        }
+
+        $record = DB::transaction(function () use ($request, $validated, $activeCondominiumId, $area, $operative, $templateItems) {
             $newRecord = CleaningRecord::query()->create([
                 'condominium_id' => $activeCondominiumId,
                 'cleaning_area_id' => $area->id,
@@ -110,10 +129,6 @@ class CleaningRecordController extends Controller
                 'status' => self::STATUS_PENDING,
                 'observations' => $validated['observations'] ?? null,
             ]);
-
-            $templateItems = $area->checklistTemplateItems()
-                ->orderBy('id')
-                ->get(['item_name']);
 
             if ($templateItems->isNotEmpty()) {
                 $now = now();
@@ -339,5 +354,108 @@ class CleaningRecordController extends Controller
         }
 
         return $record;
+    }
+
+    private function resolveScheduledChecklistItemIdsForDate(
+        int $activeCondominiumId,
+        int $cleaningAreaId,
+        string $cleaningDate
+    ): array {
+        $date = CarbonImmutable::parse($cleaningDate)->startOfDay();
+
+        $schedules = CleaningSchedule::query()
+            ->where('condominium_id', $activeCondominiumId)
+            ->where('cleaning_area_id', $cleaningAreaId)
+            ->where('is_active', true)
+            ->whereDate('start_date', '<=', $date->toDateString())
+            ->where(function ($query) use ($date) {
+                $query->whereNull('end_date')
+                    ->orWhereDate('end_date', '>=', $date->toDateString());
+            })
+            ->get([
+                'id',
+                'description',
+                'frequency_type',
+                'repeat_interval',
+                'days_of_week',
+                'start_date',
+                'end_date',
+            ]);
+
+        $pattern = '/\[checklist_item:(\d+)\]/';
+
+        return $schedules
+            ->filter(fn (CleaningSchedule $schedule) => $this->scheduleRunsOnDate($schedule, $date))
+            ->map(function (CleaningSchedule $schedule) use ($pattern) {
+                preg_match($pattern, (string) ($schedule->description ?? ''), $matches);
+                return isset($matches[1]) ? (int) $matches[1] : null;
+            })
+            ->filter(fn (?int $checklistItemId) => is_int($checklistItemId) && $checklistItemId > 0)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function scheduleRunsOnDate(CleaningSchedule $schedule, CarbonImmutable $date): bool
+    {
+        $startDate = CarbonImmutable::parse((string) $schedule->start_date)->startOfDay();
+
+        if ($date->lt($startDate)) {
+            return false;
+        }
+
+        if ($schedule->end_date) {
+            $endDate = CarbonImmutable::parse((string) $schedule->end_date)->endOfDay();
+            if ($date->gt($endDate)) {
+                return false;
+            }
+        }
+
+        $interval = max(1, (int) $schedule->repeat_interval);
+
+        return match ((string) $schedule->frequency_type) {
+            CleaningSchedule::FREQUENCY_DAILY => $startDate->diffInDays($date) % $interval === 0,
+            CleaningSchedule::FREQUENCY_CUSTOM => $startDate->diffInDays($date) % $interval === 0,
+            CleaningSchedule::FREQUENCY_WEEKLY => $this->matchesWeeklyRule($schedule, $date, $startDate, $interval),
+            CleaningSchedule::FREQUENCY_MONTHLY => $this->matchesMonthlyRule($date, $startDate, $interval),
+            default => false,
+        };
+    }
+
+    private function matchesWeeklyRule(
+        CleaningSchedule $schedule,
+        CarbonImmutable $date,
+        CarbonImmutable $startDate,
+        int $interval
+    ): bool {
+        $days = collect($schedule->days_of_week ?? [])
+            ->map(fn ($day) => (int) $day)
+            ->filter(fn ($day) => $day >= 0 && $day <= 6)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($days)) {
+            return false;
+        }
+
+        if (! in_array($date->dayOfWeek, $days, true)) {
+            return false;
+        }
+
+        $weeksBetween = intdiv($startDate->diffInDays($date), 7);
+
+        return $weeksBetween % $interval === 0;
+    }
+
+    private function matchesMonthlyRule(CarbonImmutable $date, CarbonImmutable $startDate, int $interval): bool
+    {
+        if ($date->day !== $startDate->day) {
+            return false;
+        }
+
+        $monthsBetween = $startDate->diffInMonths($date);
+
+        return $monthsBetween % $interval === 0;
     }
 }

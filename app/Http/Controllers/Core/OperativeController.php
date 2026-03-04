@@ -21,7 +21,12 @@ class OperativeController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $activeCondominiumId = $this->resolveActiveCondominiumId($request);
+        $activeCondominiumId = $this->resolveActiveCondominiumIdForIndex($request);
+
+        if ($activeCondominiumId <= 0) {
+            // For GET index, return empty list when no active tenant context is available.
+            return response()->json([]);
+        }
 
         $operatives = Operative::query()
             ->with(['user.roles' => fn ($q) => $q->select('roles.id', 'roles.name')])
@@ -253,6 +258,34 @@ class OperativeController extends Controller
         }
 
         return $activeCondominiumId;
+    }
+
+    private function resolveActiveCondominiumIdForIndex(Request $request): int
+    {
+        $activeCondominiumId = (int) $request->attributes->get('activeCondominiumId');
+
+        if ($activeCondominiumId > 0) {
+            return $activeCondominiumId;
+        }
+
+        $user = $request->user();
+        if (! $user) {
+            return 0;
+        }
+
+        // Super admin can set tenant context by header.
+        if ($user->is_platform_admin) {
+            $headerCondominiumId = (int) $request->header('X-Active-Condominium-Id', 0);
+            return $headerCondominiumId > 0 ? $headerCondominiumId : 0;
+        }
+
+        // Tenant user fallback: resolve from pivot in case middleware context is missing.
+        $role = $user->roles()->first();
+        if ($role && isset($role->pivot->condominium_id)) {
+            return (int) $role->pivot->condominium_id;
+        }
+
+        return 0;
     }
 
     private function rejectCondominiumIdFromPayload(Request $request): void

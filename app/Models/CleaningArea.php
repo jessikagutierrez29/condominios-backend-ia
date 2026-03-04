@@ -32,4 +32,9 @@ class CleaningArea extends Model
     {
         return $this->hasMany(CleaningAreaChecklist::class);
     }
+
+    public function schedules()
+    {
+        return $this->hasMany(CleaningSchedule::class);
+    }
 }

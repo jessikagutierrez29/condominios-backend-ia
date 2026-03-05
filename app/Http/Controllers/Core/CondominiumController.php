@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Condominium;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -106,6 +107,10 @@ class CondominiumController extends Controller
             return;
         }
 
+        if (! $this->hasLogoColumn()) {
+            return;
+        }
+
         if (! empty($condominium->logo_path) && ! Str::startsWith($condominium->logo_path, ['http://', 'https://'])) {
             Storage::disk('public')->delete($condominium->logo_path);
         }
@@ -119,9 +124,16 @@ class CondominiumController extends Controller
     private function present(Condominium $condominium): array
     {
         $data = $condominium->toArray();
-        $data['logo_url'] = $this->resolvePublicStorageUrl($condominium->logo_path);
+        $data['logo_url'] = $this->hasLogoColumn()
+            ? $this->resolvePublicStorageUrl($condominium->logo_path)
+            : null;
 
         return $data;
+    }
+
+    private function hasLogoColumn(): bool
+    {
+        return Schema::hasColumn('condominiums', 'logo_path');
     }
 
     private function resolvePublicStorageUrl(?string $path): ?string

@@ -37,3 +37,6 @@ class Apartment extends Model
         return $this->hasMany(VehicleIncident::class);
     }
 }
+
+//hoa//
+

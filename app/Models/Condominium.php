@@ -4,11 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Str;
 
 class Condominium extends Model
 {
     use HasFactory;
     protected $table = 'condominiums';
+    protected $appends = ['logo_url'];
 
     protected $fillable = [
         'name',
@@ -19,6 +21,7 @@ class Condominium extends Model
         'floors',
         'address',
         'contact_info',
+        'logo_path',
         'is_active',
     ];
 
@@ -26,6 +29,20 @@ class Condominium extends Model
         'is_active' => 'boolean',
         'floors' => 'integer',
     ];
+
+    public function getLogoUrlAttribute(): ?string
+    {
+        $path = $this->attributes['logo_path'] ?? null;
+        if (! $path) {
+            return null;
+        }
+
+        if (Str::startsWith($path, ['http://', 'https://', 'data:image'])) {
+            return $path;
+        }
+
+        return asset('storage/' . ltrim($path, '/'));
+    }
 
     /* Relationships*/
 

@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Core;
 use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\UserModulePermission;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
@@ -19,13 +21,14 @@ class UserController extends Controller
         $authUser = $request->user();
 
         $query = User::query()->with(['roles:id,name']);
+        $activeCondominiumId = (int) $request->attributes->get('activeCondominiumId');
 
-        if (! $authUser->is_platform_admin) {
-            $activeCondominiumId = (int) $request->attributes->get('activeCondominiumId');
-
+        if ($activeCondominiumId > 0) {
             $query->whereHas('roles', function ($q) use ($activeCondominiumId) {
                 $q->where('user_role.condominium_id', $activeCondominiumId);
             });
+        } elseif (! $authUser->is_platform_admin) {
+            $query->whereRaw('1 = 0');
         }
 
         return response()->json($query->orderByDesc('id')->get());
@@ -173,6 +176,86 @@ class UserController extends Controller
         ]);
     }
 
+    public function getModulePermissions(Request $request, int $id): JsonResponse
+    {
+        /** @var User|null $authUser */
+        $authUser = $request->user();
+
+        if (! $authUser) {
+            return response()->json([
+                'message' => 'No autenticado.',
+            ], 401);
+        }
+
+        $this->rejectCondominiumIdFromRequest($request);
+        $activeCondominiumId = $this->resolveActiveCondominiumId($request);
+
+        if (! $authUser->is_platform_admin && ! $authUser->isTenantAdmin($activeCondominiumId)) {
+            return response()->json([
+                'message' => 'No tienes permisos para consultar permisos de módulos.',
+            ], 403);
+        }
+
+        $targetUser = User::query()->findOrFail($id);
+
+        if (! $authUser->is_platform_admin) {
+            $this->ensureUserBelongsToCondominium($targetUser, $activeCondominiumId);
+        }
+
+        $permissions = $this->permissionsPayload($targetUser->id, $activeCondominiumId);
+
+        return response()->json($permissions);
+    }
+
+    public function saveModulePermissions(Request $request, int $id): JsonResponse
+    {
+        /** @var User|null $authUser */
+        $authUser = $request->user();
+
+        if (! $authUser) {
+            return response()->json([
+                'message' => 'No autenticado.',
+            ], 401);
+        }
+
+        $this->rejectCondominiumIdFromRequest($request);
+        $activeCondominiumId = $this->resolveActiveCondominiumId($request);
+
+        if (! $authUser->is_platform_admin && ! $authUser->isTenantAdmin($activeCondominiumId)) {
+            return response()->json([
+                'message' => 'No tienes permisos para modificar permisos de módulos.',
+            ], 403);
+        }
+
+        $targetUser = User::query()->findOrFail($id);
+
+        if (! $authUser->is_platform_admin) {
+            $this->ensureUserBelongsToCondominium($targetUser, $activeCondominiumId);
+        }
+
+        $validated = $request->validate([
+            '*.module' => ['required', 'string', Rule::in(User::AVAILABLE_MODULES)],
+            '*.can_view' => ['required', 'boolean'],
+        ]);
+
+        DB::transaction(function () use ($validated, $targetUser, $activeCondominiumId) {
+            foreach ($validated as $item) {
+                UserModulePermission::query()->updateOrCreate(
+                    [
+                        'user_id' => $targetUser->id,
+                        'condominium_id' => $activeCondominiumId,
+                        'module' => (string) $item['module'],
+                    ],
+                    [
+                        'can_view' => (bool) $item['can_view'],
+                    ]
+                );
+            }
+        });
+
+        return response()->json($this->permissionsPayload($targetUser->id, $activeCondominiumId));
+    }
+
     private function rejectCondominiumIdFromRequest(Request $request): void
     {
         if ($request->query->has('condominium_id') || $request->request->has('condominium_id')) {
@@ -180,5 +263,46 @@ class UserController extends Controller
                 'condominium_id' => ['No se permite enviar condominium_id en este endpoint.'],
             ]);
         }
+    }
+
+    private function resolveActiveCondominiumId(Request $request): int
+    {
+        $activeCondominiumId = (int) $request->attributes->get('activeCondominiumId');
+
+        if ($activeCondominiumId <= 0) {
+            throw ValidationException::withMessages([
+                'condominium' => ['No hay condominio activo resuelto para esta operación.'],
+            ]);
+        }
+
+        return $activeCondominiumId;
+    }
+
+    private function ensureUserBelongsToCondominium(User $user, int $activeCondominiumId): void
+    {
+        $belongs = $user->roles()
+            ->where('user_role.condominium_id', $activeCondominiumId)
+            ->exists();
+
+        if (! $belongs) {
+            throw ValidationException::withMessages([
+                'user_id' => ['El usuario no pertenece al condominio activo.'],
+            ]);
+        }
+    }
+
+    private function permissionsPayload(int $userId, int $activeCondominiumId): array
+    {
+        $existing = UserModulePermission::query()
+            ->where('user_id', $userId)
+            ->where('condominium_id', $activeCondominiumId)
+            ->pluck('can_view', 'module');
+
+        return collect(User::AVAILABLE_MODULES)->map(function (string $module) use ($existing) {
+            return [
+                'module' => $module,
+                'can_view' => (bool) ($existing[$module] ?? false),
+            ];
+        })->values()->all();
     }
 }

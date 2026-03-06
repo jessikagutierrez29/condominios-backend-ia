@@ -24,6 +24,10 @@ class EnsureInventoryOperationAccess
 
         $activeCondominiumId = (int) $request->attributes->get('activeCondominiumId');
 
+        if ($user->userHasModulePermission('inventory', $activeCondominiumId)) {
+            return $next($request);
+        }
+
         $role = $user->roles()
             ->when($activeCondominiumId > 0, fn ($query) => $query->where('user_role.condominium_id', $activeCondominiumId))
             ->first();
@@ -65,4 +69,3 @@ class EnsureInventoryOperationAccess
         return str_replace(['_', '  '], [' ', ' '], $name);
     }
 }
-

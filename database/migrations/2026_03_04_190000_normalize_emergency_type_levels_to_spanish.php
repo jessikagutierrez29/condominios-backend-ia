@@ -12,6 +12,13 @@ return new class extends Migration
             return;
         }
 
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("
+                ALTER TABLE emergency_types
+                MODIFY level ENUM('LOW','MEDIUM','HIGH','CRITICAL','BAJO','MEDIO','ALTO','CRITICO') NOT NULL
+            ");
+        }
+
         DB::statement("
             UPDATE emergency_types
             SET level = CASE UPPER(level)
@@ -41,16 +48,23 @@ return new class extends Migration
             return;
         }
 
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("
+                ALTER TABLE emergency_types
+                MODIFY level ENUM('LOW','MEDIUM','HIGH','CRITICAL','BAJO','MEDIO','ALTO','CRITICO') NOT NULL
+            ");
+        }
+
         DB::statement("
             UPDATE emergency_types
             SET level = CASE UPPER(level)
                 WHEN 'BAJO' THEN 'low'
                 WHEN 'MEDIO' THEN 'medium'
-                WHEN 'ALTO' THEN 'critical'
+                WHEN 'ALTO' THEN 'high'
                 WHEN 'CRITICO' THEN 'critical'
                 WHEN 'LOW' THEN 'low'
                 WHEN 'MEDIUM' THEN 'medium'
-                WHEN 'HIGH' THEN 'critical'
+                WHEN 'HIGH' THEN 'high'
                 WHEN 'CRITICAL' THEN 'critical'
                 ELSE 'medium'
             END
@@ -59,7 +73,7 @@ return new class extends Migration
         if (DB::getDriverName() !== 'sqlite') {
             DB::statement("
                 ALTER TABLE emergency_types
-                MODIFY level ENUM('low','medium','critical') NOT NULL
+                MODIFY level ENUM('low','medium','high','critical') NOT NULL
             ");
         }
     }

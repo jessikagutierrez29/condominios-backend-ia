@@ -74,6 +74,7 @@ class AuthController extends Controller
                 'email' => $user->email,
                 'role' => 'Super Usuario',
                 'condominium_id' => null,
+                'module_permissions' => $user->modulePermissionsMap(null),
             ]);
         }
 
@@ -93,6 +94,7 @@ class AuthController extends Controller
             'email' => $user->email,
             'role' => $role->name,
             'condominium_id' => $role->pivot->condominium_id,
+            'module_permissions' => $user->modulePermissionsMap((int) $role->pivot->condominium_id),
         ]);
     }
 }

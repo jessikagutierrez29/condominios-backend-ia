@@ -25,8 +25,12 @@ class Product extends Model
         'minimum_stock',
         'type',
         'asset_code',
+        'serial',
         'location',
         'is_active',
+        'dado_de_baja',
+        'dado_de_baja_por',
+        'fecha_baja',
         'responsible_id',
     ];
 
@@ -35,6 +39,8 @@ class Product extends Model
         'total_value' => 'decimal:2',
         'minimum_stock' => 'integer',
         'stock' => 'integer',
+        'dado_de_baja' => 'boolean',
+        'fecha_baja' => 'datetime',
     ];
 
     protected static function booted()
@@ -46,7 +52,11 @@ class Product extends Model
                 $product->minimum_stock = 0;
             } else {
                 $product->asset_code = null;
+                $product->serial = null;
                 $product->location = null;
+                $product->dado_de_baja = false;
+                $product->dado_de_baja_por = null;
+                $product->fecha_baja = null;
             }
 
             $product->total_value = $product->calculateTotalValue();
@@ -80,6 +90,11 @@ class Product extends Model
         return $this->belongsTo(User::class, 'responsible_id');
     }
 
+    public function deactivatedBy()
+    {
+        return $this->belongsTo(User::class, 'dado_de_baja_por');
+    }
+
     /*Business Logic (Stock handling)*/
 
     public function increaseStock($quantity)
@@ -102,6 +117,11 @@ class Product extends Model
     public function isAsset(): bool
     {
         return (string) $this->type === self::TYPE_ASSET;
+    }
+
+    public function isInactiveAsset(): bool
+    {
+        return $this->isAsset() && ((bool) $this->dado_de_baja || ! (bool) $this->is_active);
     }
 
     public function isBelowMinimumStock(): bool

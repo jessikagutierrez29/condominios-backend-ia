@@ -197,7 +197,9 @@ Route::middleware(['auth:api', 'resolve.active.condominium'])->group(function ()
         Route::patch('/inventory-categories/{id}/toggle', [InventoryCategoryController::class, 'toggle'])->middleware('inventory.settings');
 
         Route::get('/inventory/low-stock', [ProductController::class, 'lowStock'])->middleware('inventory.operation');
+        Route::post('/inventory/activos/{id}/baja', [ProductController::class, 'deactivateAsset'])->middleware('inventory.settings');
 
+        Route::get('/inventory/movements', [InventoryMovementController::class, 'index'])->middleware('inventory.operation');
         Route::post('/inventory-movements/entry', [InventoryMovementController::class, 'entry'])->middleware('inventory.operation');
         Route::post('/inventory-movements/exit', [InventoryMovementController::class, 'exit'])->middleware('inventory.operation');
         Route::get('/products/{id}/movements', [InventoryMovementController::class, 'historyByProduct'])->middleware('inventory.operation');

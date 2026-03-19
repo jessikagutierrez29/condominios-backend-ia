@@ -12,6 +12,46 @@ use Illuminate\Validation\ValidationException;
 
 class InventoryMovementController extends Controller
 {
+    public function index(Request $request): JsonResponse
+    {
+        $activeCondominiumId = $this->activeCondominium($request);
+        $this->rejectCondominiumIdFromRequest($request);
+
+        $validated = $request->validate([
+            'inventory_id' => ['nullable', 'integer'],
+            'product_id' => ['nullable', 'integer'],
+        ]);
+
+        $movements = InventoryMovement::query()
+            ->with([
+                'registeredBy:id,full_name,email,document_number',
+                'product.inventory:id,condominium_id,name',
+            ])
+            ->whereHas('product.inventory', function ($query) use ($activeCondominiumId) {
+                $query->where('condominium_id', $activeCondominiumId);
+            })
+            ->when(
+                ! empty($validated['inventory_id']),
+                fn ($query) => $query->whereHas('product', fn ($productQuery) => $productQuery->where('inventory_id', (int) $validated['inventory_id']))
+            )
+            ->when(
+                ! empty($validated['product_id']),
+                fn ($query) => $query->where('product_id', (int) $validated['product_id'])
+            )
+            ->orderByDesc('movement_date')
+            ->orderByDesc('id')
+            ->get()
+            ->map(function (InventoryMovement $movement) {
+                $data = $movement->toArray();
+                $data['product_name'] = $movement->product?->name;
+                $data['inventory_name'] = $movement->product?->inventory?->name;
+
+                return $data;
+            });
+
+        return response()->json($movements);
+    }
+
     public function entry(Request $request): JsonResponse
     {
         return $this->registerMovement($request, 'entry');
@@ -66,13 +106,27 @@ class InventoryMovementController extends Controller
                 ]);
             }
 
-            if ($product->isAsset()) {
+            if ($product->isAsset() && $product->dado_de_baja) {
                 throw ValidationException::withMessages([
-                    'product_id' => ['Los productos tipo activo no manejan movimientos de inventario.'],
+                    'product_id' => ['El activo fijo ya fue dado de baja y no admite movimientos nuevos.'],
                 ]);
             }
 
             $quantity = (int) $validated['quantity'];
+            if ($product->isAsset()) {
+                if ($movementType !== 'exit') {
+                    throw ValidationException::withMessages([
+                        'type' => ['Los activos fijos solo admiten movimientos de salida individual.'],
+                    ]);
+                }
+
+                if ($quantity !== 1) {
+                    throw ValidationException::withMessages([
+                        'quantity' => ['Los activos fijos deben registrarse individualmente con cantidad 1.'],
+                    ]);
+                }
+            }
+
             if ($movementType === 'exit' && $product->isConsumable() && (int) $product->stock < $quantity) {
                 throw ValidationException::withMessages([
                     'quantity' => ['No hay stock suficiente para registrar esta salida.'],

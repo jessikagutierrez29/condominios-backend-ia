@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Supplier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -28,7 +30,9 @@ class SupplierController extends Controller
             $query->where('is_active', (int) $validated['active'] === 1);
         }
 
-        return response()->json($query->get());
+        return response()->json(
+            $query->get()->map(fn (Supplier $supplier) => $this->present($supplier))
+        );
     }
 
     public function store(Request $request): JsonResponse
@@ -44,24 +48,42 @@ class SupplierController extends Controller
                 Rule::unique('suppliers', 'name')
                     ->where(fn ($query) => $query->where('condominium_id', $activeCondominiumId)),
             ],
+            'rut' => ['nullable', 'string', 'max:100'],
             'contact_name' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:255'],
             'address' => ['nullable', 'string', 'max:255'],
+            'certificacion_bancaria' => ['nullable', 'string', 'max:2048'],
+            'certificacion_bancaria_file' => ['nullable', 'file', 'max:5120', 'mimes:pdf,jpg,jpeg,png,webp'],
+            'documento_representante_legal' => ['nullable', 'string', 'max:2048'],
+            'documento_representante_legal_file' => ['nullable', 'file', 'max:5120', 'mimes:pdf,jpg,jpeg,png,webp'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
 
         $supplier = Supplier::query()->create([
             'condominium_id' => $activeCondominiumId,
             'name' => trim((string) $validated['name']),
+            'rut' => $this->nullableTrim($validated['rut'] ?? null),
             'contact_name' => $validated['contact_name'] ?? null,
             'phone' => $validated['phone'] ?? null,
             'email' => $validated['email'] ?? null,
             'address' => $validated['address'] ?? null,
+            'certificacion_bancaria' => $this->resolveUploadedDocument(
+                $request,
+                'certificacion_bancaria_file',
+                'certificacion_bancaria',
+                $activeCondominiumId
+            ),
+            'documento_representante_legal' => $this->resolveUploadedDocument(
+                $request,
+                'documento_representante_legal_file',
+                'documento_representante_legal',
+                $activeCondominiumId
+            ),
             'is_active' => (bool) ($validated['is_active'] ?? true),
         ]);
 
-        return response()->json($supplier, 201);
+        return response()->json($this->present($supplier->fresh()), 201);
     }
 
     public function update(Request $request, int $id): JsonResponse
@@ -81,20 +103,48 @@ class SupplierController extends Controller
                     ->ignore($supplier->id)
                     ->where(fn ($query) => $query->where('condominium_id', $activeCondominiumId)),
             ],
+            'rut' => ['sometimes', 'nullable', 'string', 'max:100'],
             'contact_name' => ['sometimes', 'nullable', 'string', 'max:255'],
             'phone' => ['sometimes', 'nullable', 'string', 'max:50'],
             'email' => ['sometimes', 'nullable', 'email', 'max:255'],
             'address' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'certificacion_bancaria' => ['sometimes', 'nullable', 'string', 'max:2048'],
+            'certificacion_bancaria_file' => ['sometimes', 'nullable', 'file', 'max:5120', 'mimes:pdf,jpg,jpeg,png,webp'],
+            'documento_representante_legal' => ['sometimes', 'nullable', 'string', 'max:2048'],
+            'documento_representante_legal_file' => ['sometimes', 'nullable', 'file', 'max:5120', 'mimes:pdf,jpg,jpeg,png,webp'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
 
         if (array_key_exists('name', $validated)) {
             $validated['name'] = trim((string) $validated['name']);
         }
+        if (array_key_exists('rut', $validated)) {
+            $validated['rut'] = $this->nullableTrim($validated['rut']);
+        }
+
+        if ($request->hasFile('certificacion_bancaria_file') || array_key_exists('certificacion_bancaria', $validated)) {
+            $validated['certificacion_bancaria'] = $this->resolveUploadedDocument(
+                $request,
+                'certificacion_bancaria_file',
+                'certificacion_bancaria',
+                $activeCondominiumId,
+                $supplier->certificacion_bancaria
+            );
+        }
+
+        if ($request->hasFile('documento_representante_legal_file') || array_key_exists('documento_representante_legal', $validated)) {
+            $validated['documento_representante_legal'] = $this->resolveUploadedDocument(
+                $request,
+                'documento_representante_legal_file',
+                'documento_representante_legal',
+                $activeCondominiumId,
+                $supplier->documento_representante_legal
+            );
+        }
 
         $supplier->update($validated);
 
-        return response()->json($supplier->fresh());
+        return response()->json($this->present($supplier->fresh()));
     }
 
     public function destroy(Request $request, int $id): JsonResponse
@@ -108,8 +158,62 @@ class SupplierController extends Controller
 
         return response()->json([
             'message' => 'Proveedor desactivado.',
-            'data' => $supplier->fresh(),
+            'data' => $this->present($supplier->fresh()),
         ]);
+    }
+
+    private function nullableTrim(?string $value): ?string
+    {
+        $trimmed = trim((string) $value);
+
+        return $trimmed !== '' ? $trimmed : null;
+    }
+
+    private function resolveUploadedDocument(
+        Request $request,
+        string $fileField,
+        string $pathField,
+        int $activeCondominiumId,
+        ?string $currentPath = null
+    ): ?string {
+        if ($request->hasFile($fileField)) {
+            if ($currentPath && ! Str::startsWith($currentPath, ['http://', 'https://'])) {
+                Storage::disk('public')->delete($currentPath);
+            }
+
+            return $request->file($fileField)->store(
+                sprintf('condominiums/%d/suppliers', $activeCondominiumId),
+                'public'
+            );
+        }
+
+        if ($request->exists($pathField)) {
+            return $this->nullableTrim($request->input($pathField));
+        }
+
+        return $currentPath;
+    }
+
+    private function present(Supplier $supplier): array
+    {
+        $data = $supplier->toArray();
+        $data['certificacion_bancaria_url'] = $this->resolvePublicStorageUrl($supplier->certificacion_bancaria);
+        $data['documento_representante_legal_url'] = $this->resolvePublicStorageUrl($supplier->documento_representante_legal);
+
+        return $data;
+    }
+
+    private function resolvePublicStorageUrl(?string $path): ?string
+    {
+        if (! $path) {
+            return null;
+        }
+
+        if (Str::startsWith($path, ['http://', 'https://'])) {
+            return $path;
+        }
+
+        return asset('storage/' . ltrim($path, '/'));
     }
 
     private function activeCondominium(Request $request): int

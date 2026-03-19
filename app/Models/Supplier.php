@@ -12,6 +12,9 @@ class Supplier extends Model
     protected $fillable = [
         'condominium_id',
         'name',
+        'rut',
+        'certificacion_bancaria',
+        'documento_representante_legal',
         'contact_name',
         'phone',
         'email',

@@ -20,12 +20,50 @@ class ResidentController extends Controller
     {
         $activeCondominiumId = $this->resolveActiveCondominiumId($request);
         $this->rejectCondominiumIdFromRequest($request);
+        $validated = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:10'],
+            'q' => ['nullable', 'string', 'max:255'],
+            'is_active' => ['nullable', 'boolean'],
+            'type' => ['nullable', Rule::in(['propietario', 'arrendatario'])],
+            'unit_type_name' => ['nullable', 'string', 'max:100'],
+        ]);
 
         $residents = Resident::query()
             ->with(['user', 'apartment.unitType:id,name'])
             ->whereHas('apartment', fn ($q) => $q->where('condominium_id', $activeCondominiumId))
+            ->when(
+                ! empty($validated['q']),
+                function ($query) use ($validated) {
+                    $search = trim((string) $validated['q']);
+                    $query->where(function ($subQuery) use ($search) {
+                        $subQuery->whereHas('user', function ($userQuery) use ($search) {
+                            $userQuery->where('full_name', 'like', '%' . $search . '%')
+                                ->orWhere('document_number', 'like', '%' . $search . '%');
+                        })->orWhereHas('apartment', function ($apartmentQuery) use ($search) {
+                            $apartmentQuery->where('number', 'like', '%' . $search . '%')
+                                ->orWhere('tower', 'like', '%' . $search . '%');
+                        });
+                    });
+                }
+            )
+            ->when(
+                array_key_exists('is_active', $validated),
+                fn ($query) => $query->where('is_active', (bool) $validated['is_active'])
+            )
+            ->when(
+                ! empty($validated['type']),
+                fn ($query) => $query->where('type', $validated['type'])
+            )
+            ->when(
+                ! empty($validated['unit_type_name']),
+                fn ($query) => $query->whereHas(
+                    'apartment.unitType',
+                    fn ($unitTypeQuery) => $unitTypeQuery->where('name', trim((string) $validated['unit_type_name']))
+                )
+            )
             ->orderByDesc('id')
-            ->get();
+            ->paginate((int) ($validated['per_page'] ?? 10), ['*'], 'page', (int) ($validated['page'] ?? 1));
 
         return response()->json($residents);
     }

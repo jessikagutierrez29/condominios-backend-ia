@@ -15,6 +15,34 @@ use Illuminate\Validation\ValidationException;
 
 class CorrespondenceController extends Controller
 {
+    public function bootstrapData(Request $request): JsonResponse
+    {
+        $activeCondominiumId = $this->resolveActiveCondominiumId($request);
+        $this->rejectForbiddenFieldsFromRequest($request);
+
+        $apartments = Apartment::query()
+            ->with(['unitType:id,name'])
+            ->where('condominium_id', $activeCondominiumId)
+            ->where('is_active', true)
+            ->orderBy('tower')
+            ->orderBy('number')
+            ->get(['id', 'condominium_id', 'unit_type_id', 'tower', 'number', 'floor', 'is_active']);
+
+        $residents = Resident::query()
+            ->with(['user:id,full_name,email,document_number'])
+            ->whereHas('apartment', function ($query) use ($activeCondominiumId) {
+                $query->where('condominium_id', $activeCondominiumId);
+            })
+            ->where('is_active', true)
+            ->orderByDesc('id')
+            ->get(['id', 'user_id', 'apartment_id', 'type', 'is_active']);
+
+        return response()->json([
+            'apartments' => $apartments,
+            'residents' => $residents,
+        ]);
+    }
+
     public function index(Request $request): JsonResponse
     {
         $activeCondominiumId = $this->resolveActiveCondominiumId($request);
@@ -57,10 +85,12 @@ class CorrespondenceController extends Controller
             'package_type' => ['required', 'string', Rule::in(['documento', 'paquete'])],
             'evidence_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'digital_signature' => ['nullable', 'string'],
+            'deliver_immediately' => ['nullable', 'boolean'],
+            'resident_receiver_id' => ['nullable', 'integer', 'exists:residents,id'],
             'apartment_id' => ['required', 'integer', 'exists:apartments,id'],
         ]);
 
-        $this->resolveApartmentInActiveCondominium((int) $validated['apartment_id'], $activeCondominiumId);
+        $apartment = $this->resolveApartmentInActiveCondominium((int) $validated['apartment_id'], $activeCondominiumId);
 
         $evidencePhotoPath = $request->hasFile('evidence_photo')
             ? $request->file('evidence_photo')->store(
@@ -69,17 +99,44 @@ class CorrespondenceController extends Controller
             )
             : null;
 
+        $residentReceiver = null;
+        $hasImmediateDelivery = (bool) ($validated['deliver_immediately'] ?? false) || ! empty($validated['resident_receiver_id']);
+
+        if (! empty($validated['resident_receiver_id'])) {
+            $residentReceiver = $this->resolveResidentInActiveCondominium(
+                (int) $validated['resident_receiver_id'],
+                $activeCondominiumId
+            );
+
+            if ((int) $residentReceiver->apartment_id !== (int) $apartment->id) {
+                throw ValidationException::withMessages([
+                    'resident_receiver_id' => ['El residente no pertenece a la unidad seleccionada.'],
+                ]);
+            }
+        }
+
+        if ($hasImmediateDelivery && empty($validated['digital_signature'])) {
+            throw ValidationException::withMessages([
+                'digital_signature' => ['La firma digital es obligatoria para entrega inmediata.'],
+            ]);
+        }
+
+        $storedSignature = ! empty($validated['digital_signature'])
+            ? $this->storeDigitalSignatureIfBase64((string) $validated['digital_signature'], $activeCondominiumId)
+            : null;
+
         $item = Correspondence::query()->create([
             'condominium_id' => $activeCondominiumId,
             'apartment_id' => (int) $validated['apartment_id'],
             'courier_company' => $validated['courier_company'],
             'package_type' => $validated['package_type'],
             'evidence_photo' => $evidencePhotoPath,
-            'digital_signature' => ! empty($validated['digital_signature'])
-                ? $this->storeDigitalSignatureIfBase64((string) $validated['digital_signature'], $activeCondominiumId)
-                : null,
-            'status' => Correspondence::STATUS_RECEIVED,
+            'digital_signature' => $storedSignature,
+            'status' => $hasImmediateDelivery ? Correspondence::STATUS_DELIVERED : Correspondence::STATUS_RECEIVED,
             'received_by_id' => $request->user()?->id,
+            'resident_receiver_id' => $residentReceiver?->id,
+            'delivered_by_id' => $hasImmediateDelivery ? $request->user()?->id : null,
+            'delivered_at' => $hasImmediateDelivery ? now() : null,
         ]);
 
         $freshItem = $item->fresh()->load([
@@ -201,7 +258,6 @@ class CorrespondenceController extends Controller
     private function rejectCreateForbiddenFieldsFromRequest(Request $request): void
     {
         $forbiddenCreateFields = [
-            'resident_receiver_id',
             'delivered',
         ];
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Core;
 
 use App\Http\Controllers\Controller;
+use App\Models\CleaningArea;
 use App\Models\HealthIncident;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,6 +12,20 @@ use Illuminate\Validation\ValidationException;
 
 class HealthIncidentController extends Controller
 {
+    public function areas(Request $request): JsonResponse
+    {
+        $activeCondominiumId = $this->resolveActiveCondominiumId($request);
+        $this->rejectCondominiumIdFromRequest($request);
+
+        $areas = CleaningArea::query()
+            ->where('condominium_id', $activeCondominiumId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return response()->json($areas);
+    }
+
     public function index(Request $request): JsonResponse
     {
         $activeCondominiumId = $this->resolveActiveCondominiumId($request);

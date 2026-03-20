@@ -20,6 +20,53 @@ class CleaningRecordController extends Controller
     private const STATUS_PENDING = 'pending';
     private const STATUS_COMPLETED = 'completed';
 
+
+    public function bootstrapData(Request $request): JsonResponse
+    {
+        $activeCondominiumId = $this->resolveActiveCondominiumId($request);
+        $this->rejectCondominiumIdFromRequest($request);
+
+        $areas = CleaningArea::query()
+            ->where('condominium_id', $activeCondominiumId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->orderByDesc('id')
+            ->get();
+
+        $operatives = Operative::query()
+            ->with(['user:id,full_name,email,document_number'])
+            ->where('condominium_id', $activeCondominiumId)
+            ->where('is_active', true)
+            ->orderBy('position')
+            ->orderByDesc('id')
+            ->get([
+                'id',
+                'user_id',
+                'condominium_id',
+                'position',
+                'contract_type',
+                'is_active',
+            ]);
+
+        $records = CleaningRecord::query()
+            ->with([
+                'cleaningArea:id,condominium_id,name,description,is_active',
+                'operative:id,user_id,condominium_id,position,is_active',
+                'operative.user:id,full_name,email,document_number',
+                'registeredBy:id,full_name,email,document_number',
+            ])
+            ->where('condominium_id', $activeCondominiumId)
+            ->orderByDesc('cleaning_date')
+            ->orderByDesc('id')
+            ->get();
+
+        return response()->json([
+            'areas' => $areas,
+            'operatives' => $operatives,
+            'records' => $records,
+        ]);
+    }
+
     public function index(Request $request): JsonResponse
     {
         $activeCondominiumId = $this->resolveActiveCondominiumId($request);
@@ -141,6 +188,17 @@ class CleaningRecordController extends Controller
             ], 422);
         }
 
+        $alreadyExists = CleaningRecord::query()
+            ->where('condominium_id', $activeCondominiumId)
+            ->where('cleaning_area_id', $area->id)
+            ->whereDate('cleaning_date', $validated['cleaning_date'])
+            ->exists();
+
+        if ($alreadyExists) {
+            throw ValidationException::withMessages([
+                'cleaning_area_id' => ['Esta area ya tiene un registro de limpieza para hoy.'],
+            ]);
+        }
         $record = DB::transaction(function () use ($request, $validated, $activeCondominiumId, $area, $operative, $templateItems) {
             $newRecord = CleaningRecord::query()->create([
                 'condominium_id' => $activeCondominiumId,
@@ -148,6 +206,7 @@ class CleaningRecordController extends Controller
                 'operative_id' => $operative->id,
                 'registered_by_id' => $request->user()?->id,
                 'cleaning_date' => $validated['cleaning_date'],
+                'started_at' => now(),
                 'status' => self::STATUS_PENDING,
                 'observations' => $validated['observations'] ?? null,
             ]);
@@ -222,6 +281,7 @@ class CleaningRecordController extends Controller
         $record->update([
             'observations' => $validated['observations'],
             'status' => self::STATUS_COMPLETED,
+            'finished_at' => now(),
         ]);
 
         return response()->json(

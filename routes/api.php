@@ -106,6 +106,7 @@ Route::middleware(['auth:api', 'resolve.active.condominium'])->group(function ()
     });
 
     Route::prefix('employee-entries')->middleware('module:employee-entries')->group(function () {
+        Route::get('/bootstrap-data', [EmployeeEntryController::class, 'bootstrapData']);
         Route::get('/', [EmployeeEntryController::class, 'index']);
         Route::post('/', [EmployeeEntryController::class, 'store']);
         Route::put('/checkout/{id}', [EmployeeEntryController::class, 'checkout']);
@@ -119,6 +120,7 @@ Route::middleware(['auth:api', 'resolve.active.condominium'])->group(function ()
     });
 
     Route::middleware('module:emergencies')->group(function () {
+        Route::get('/areas', [HealthIncidentController::class, 'areas']);
         Route::get('/emergency-types', [EmergencyTypeController::class, 'index']);
         Route::post('/emergency-types', [EmergencyTypeController::class, 'store']);
         Route::put('/emergency-types/{id}', [EmergencyTypeController::class, 'update']);
@@ -138,12 +140,14 @@ Route::middleware(['auth:api', 'resolve.active.condominium'])->group(function ()
     });
 
     Route::middleware('module:correspondences')->group(function () {
+        Route::get('/correspondences/bootstrap-data', [CorrespondenceController::class, 'bootstrapData']);
         Route::get('/correspondences', [CorrespondenceController::class, 'index']);
         Route::post('/correspondences', [CorrespondenceController::class, 'store']);
         Route::patch('/correspondences/{id}/deliver', [CorrespondenceController::class, 'deliver']);
     });
 
     Route::middleware('module:cleaning')->group(function () {
+        Route::get('/cleaning/bootstrap-data', [CleaningRecordController::class, 'bootstrapData']);
         Route::get('/cleaning-areas', [CleaningAreaController::class, 'index']);
         Route::post('/cleaning-areas', [CleaningAreaController::class, 'store']);
         Route::put('/cleaning-areas/{id}', [CleaningAreaController::class, 'update']);

@@ -15,6 +15,48 @@ class EmployeeEntryController extends Controller
     private const STATUS_COMPLETED = 'completed';
     private const STATUS_CANCELLED = 'cancelled';
 
+
+    public function bootstrapData(Request $request): JsonResponse
+    {
+        $activeCondominiumId = $this->activeCondominium($request);
+        $this->rejectCondominiumIdFromRequest($request);
+
+        $operatives = Operative::query()
+            ->with(['user:id,full_name,email,document_number'])
+            ->where('condominium_id', $activeCondominiumId)
+            ->where('is_active', true)
+            ->orderBy('contract_type')
+            ->orderBy('position')
+            ->orderByDesc('id')
+            ->get([
+                'id',
+                'user_id',
+                'condominium_id',
+                'position',
+                'contract_type',
+                'is_active',
+            ])
+            ->map(fn (Operative $operative) => [
+                'id' => $operative->id,
+                'user_id' => $operative->user_id,
+                'condominium_id' => $operative->condominium_id,
+                'position' => $operative->position,
+                'contract_type' => $operative->contract_type,
+                'is_active' => (bool) $operative->is_active,
+                'user' => $operative->user ? [
+                    'id' => $operative->user->id,
+                    'full_name' => $operative->user->full_name,
+                    'email' => $operative->user->email,
+                    'document_number' => $operative->user->document_number,
+                ] : null,
+            ])
+            ->values();
+
+        return response()->json([
+            'operatives' => $operatives,
+        ]);
+    }
+
     public function index(Request $request): JsonResponse
     {
         $activeCondominiumId = $this->activeCondominium($request);

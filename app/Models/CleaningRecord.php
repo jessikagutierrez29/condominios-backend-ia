@@ -15,12 +15,16 @@ class CleaningRecord extends Model
         'operative_id',
         'registered_by_id',
         'cleaning_date',
+        'started_at',
+        'finished_at',
         'status',
         'observations',
     ];
 
     protected $casts = [
         'cleaning_date' => 'date',
+        'started_at' => 'datetime',
+        'finished_at' => 'datetime',
     ];
 
     /* Relaciones */

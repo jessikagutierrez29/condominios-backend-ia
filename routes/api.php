@@ -87,6 +87,7 @@ Route::middleware(['auth:api', 'resolve.active.condominium'])->group(function ()
     });
 
     Route::middleware('module:visits')->group(function () {
+        Route::get('/visits/bootstrap-data', [VisitController::class, 'bootstrapData']);
         Route::get('/visits', [VisitController::class, 'index']);
         Route::post('/visits', [VisitController::class, 'store']);
         Route::patch('/visits/{id}/checkout', [VisitController::class, 'checkout']);

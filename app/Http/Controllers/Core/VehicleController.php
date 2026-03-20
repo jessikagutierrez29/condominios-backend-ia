@@ -35,6 +35,7 @@ class VehicleController extends Controller
 
         $apartments = Apartment::query()
             ->where('condominium_id', $activeCondominiumId)
+            ->where('is_active', true)
             ->orderBy('tower')
             ->orderBy('number')
             ->get(['id', 'unit_type_id', 'tower', 'number', 'floor', 'is_active']);
@@ -68,7 +69,9 @@ class VehicleController extends Controller
 
         return response()->json([
             'vehicle_types' => $vehicleTypes,
+            'vehicleTypes' => $vehicleTypes,
             'units' => $unitTypes,
+            'unitTypes' => $unitTypes,
             'apartments' => $apartments,
             'operatives' => $operatives,
         ]);

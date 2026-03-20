@@ -21,24 +21,60 @@ class OperativeController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $validated = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:10'],
+            'q' => ['nullable', 'string', 'max:255'],
+            'is_active' => ['nullable', 'boolean'],
+            'contract_type' => ['nullable', Rule::in(['contratista', 'planta'])],
+        ]);
+
         $activeCondominiumId = $this->resolveActiveCondominiumIdForIndex($request);
 
         if ($activeCondominiumId <= 0) {
-            // For GET index, return empty list when no active tenant context is available.
-            return response()->json([]);
+            return response()->json([
+                'data' => [],
+                'current_page' => 1,
+                'last_page' => 1,
+                'per_page' => (int) ($validated['per_page'] ?? 10),
+                'total' => 0,
+            ]);
         }
 
         $operatives = Operative::query()
             ->with(['user.roles' => fn ($q) => $q->select('roles.id', 'roles.name')])
             ->where('condominium_id', $activeCondominiumId)
+            ->when(
+                ! empty($validated['q']),
+                function ($query) use ($validated) {
+                    $search = trim((string) $validated['q']);
+                    $query->where(function ($subQuery) use ($search) {
+                        $subQuery->whereHas('user', function ($userQuery) use ($search) {
+                            $userQuery->where('full_name', 'like', '%' . $search . '%')
+                                ->orWhere('document_number', 'like', '%' . $search . '%')
+                                ->orWhere('email', 'like', '%' . $search . '%');
+                        })->orWhere('position', 'like', '%' . $search . '%');
+                    });
+                }
+            )
+            ->when(
+                array_key_exists('is_active', $validated),
+                fn ($query) => $query->where('is_active', (bool) $validated['is_active'])
+            )
+            ->when(
+                ! empty($validated['contract_type']),
+                fn ($query) => $query->where('contract_type', $validated['contract_type'])
+            )
             ->orderByDesc('id')
-            ->get();
+            ->paginate((int) ($validated['per_page'] ?? 10), ['*'], 'page', (int) ($validated['page'] ?? 1));
 
-        $payload = $operatives->map(function (Operative $operative) use ($activeCondominiumId) {
-            return $this->formatOperative($operative, $activeCondominiumId);
-        });
+        $operatives->setCollection(
+            $operatives->getCollection()->map(
+                fn (Operative $operative) => $this->formatOperative($operative, $activeCondominiumId)
+            )
+        );
 
-        return response()->json($payload);
+        return response()->json($operatives);
     }
 
     public function roles(Request $request): JsonResponse

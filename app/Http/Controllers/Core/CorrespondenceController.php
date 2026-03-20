@@ -19,6 +19,13 @@ class CorrespondenceController extends Controller
     {
         $activeCondominiumId = $this->resolveActiveCondominiumId($request);
         $this->rejectForbiddenFieldsFromRequest($request);
+        $validated = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:10'],
+        ]);
+
+        $perPage = (int) ($validated['per_page'] ?? 10);
+        $page = (int) ($validated['page'] ?? 1);
 
         $items = Correspondence::query()
             ->with([
@@ -30,11 +37,13 @@ class CorrespondenceController extends Controller
             ])
             ->where('condominium_id', $activeCondominiumId)
             ->orderByDesc('id')
-            ->get();
+            ->paginate($perPage, ['*'], 'page', $page);
 
-        return response()->json(
-            $items->map(fn (Correspondence $item) => $this->present($item))
+        $items->setCollection(
+            $items->getCollection()->map(fn (Correspondence $item) => $this->present($item))
         );
+
+        return response()->json($items);
     }
 
     public function store(Request $request): JsonResponse

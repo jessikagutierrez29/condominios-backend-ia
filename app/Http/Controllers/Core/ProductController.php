@@ -22,10 +22,11 @@ class ProductController extends Controller
         $this->rejectCondominiumIdFromRequest($request);
 
         $validated = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
             'inventory_id' => ['nullable', 'integer'],
             'type' => ['nullable', Rule::in([Product::TYPE_CONSUMABLE, Product::TYPE_ASSET])],
             'is_active' => ['nullable', 'boolean'],
-            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:10'],
         ]);
 
         $query = Product::query()
@@ -51,7 +52,7 @@ class ProductController extends Controller
             $query->where('is_active', (bool) $validated['is_active']);
         }
 
-        $products = $query->paginate((int) ($validated['per_page'] ?? 20));
+        $products = $query->paginate((int) ($validated['per_page'] ?? 10));
         $products->getCollection()->transform(fn (Product $product) => $this->serializeProduct($product));
 
         return response()->json($products);
@@ -63,10 +64,11 @@ class ProductController extends Controller
         $this->rejectCondominiumIdFromRequest($request);
 
         $validated = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
             'inventory_id' => ['nullable', 'integer'],
             'type' => ['nullable', Rule::in([Product::TYPE_CONSUMABLE, Product::TYPE_ASSET])],
             'is_active' => ['nullable', 'boolean'],
-            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:10'],
         ]);
 
         $query = Product::query()
@@ -92,7 +94,7 @@ class ProductController extends Controller
             $query->where('is_active', (bool) $validated['is_active']);
         }
 
-        $products = $query->paginate((int) ($validated['per_page'] ?? 20));
+        $products = $query->paginate((int) ($validated['per_page'] ?? 10));
         $productIds = $products->getCollection()->pluck('id')->all();
 
         $movementsByProduct = collect();

@@ -19,6 +19,15 @@ class EmployeeEntryController extends Controller
     {
         $activeCondominiumId = $this->activeCondominium($request);
         $this->rejectCondominiumIdFromRequest($request);
+        $validated = $request->validate([
+            'active_page' => ['nullable', 'integer', 'min:1'],
+            'history_page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:10'],
+        ]);
+
+        $perPage = (int) ($validated['per_page'] ?? 10);
+        $activePage = (int) ($validated['active_page'] ?? 1);
+        $historyPage = (int) ($validated['history_page'] ?? 1);
 
         $baseQuery = EmployeeEntry::query()
             ->with([
@@ -32,13 +41,12 @@ class EmployeeEntryController extends Controller
         $activeEntries = (clone $baseQuery)
             ->where('status', self::STATUS_ACTIVE)
             ->orderByDesc('check_in_at')
-            ->get();
+            ->paginate($perPage, ['*'], 'active_page', $activePage);
 
         $historyEntries = (clone $baseQuery)
             ->where('status', self::STATUS_COMPLETED)
             ->orderByDesc('check_out_at')
-            ->limit(100)
-            ->get();
+            ->paginate($perPage, ['*'], 'history_page', $historyPage);
 
         return response()->json([
             'active_entries' => $activeEntries,

@@ -17,13 +17,38 @@ class ApartmentController extends Controller
     {
         $activeCondominiumId = $this->resolveActiveCondominiumId($request);
         $this->rejectCondominiumIdFromRequest($request);
+        $validated = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:10'],
+            'q' => ['nullable', 'string', 'max:100'],
+            'tower' => ['nullable', 'string', 'max:50'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
 
         $apartments = Apartment::query()
             ->with(['unitType:id,name'])
             ->where('condominium_id', $activeCondominiumId)
+            ->when(
+                ! empty($validated['q']),
+                function ($query) use ($validated) {
+                    $q = trim((string) $validated['q']);
+                    $query->where(function ($subQuery) use ($q) {
+                        $subQuery->where('number', 'like', '%' . $q . '%')
+                            ->orWhere('tower', 'like', '%' . $q . '%');
+                    });
+                }
+            )
+            ->when(
+                ! empty($validated['tower']) && trim((string) $validated['tower']) !== 'all',
+                fn ($query) => $query->where('tower', trim((string) $validated['tower']))
+            )
+            ->when(
+                array_key_exists('is_active', $validated),
+                fn ($query) => $query->where('is_active', (bool) $validated['is_active'])
+            )
             ->orderBy('tower')
             ->orderBy('number')
-            ->get();
+            ->paginate((int) ($validated['per_page'] ?? 10), ['*'], 'page', (int) ($validated['page'] ?? 1));
 
         return response()->json($apartments);
     }
@@ -174,4 +199,3 @@ class ApartmentController extends Controller
         return $unitType;
     }
 }
-

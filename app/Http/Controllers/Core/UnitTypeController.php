@@ -16,12 +16,26 @@ class UnitTypeController extends Controller
     {
         $activeCondominiumId = $this->resolveActiveCondominiumId($request);
         $this->rejectCondominiumIdFromRequest($request);
+        $validated = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:10'],
+            'q' => ['nullable', 'string', 'max:100'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
 
         $unitTypes = UnitType::query()
             ->withCount('apartments')
             ->where('condominium_id', $activeCondominiumId)
+            ->when(
+                ! empty($validated['q']),
+                fn ($query) => $query->where('name', 'like', '%' . trim((string) $validated['q']) . '%')
+            )
+            ->when(
+                array_key_exists('is_active', $validated),
+                fn ($query) => $query->where('is_active', (bool) $validated['is_active'])
+            )
             ->orderBy('name')
-            ->get();
+            ->paginate((int) ($validated['per_page'] ?? 10), ['*'], 'page', (int) ($validated['page'] ?? 1));
 
         return response()->json($unitTypes);
     }

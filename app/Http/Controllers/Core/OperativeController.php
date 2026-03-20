@@ -116,6 +116,8 @@ class OperativeController extends Controller
             'financial_institution' => ['nullable', 'string', 'max:120'],
             'account_type' => ['nullable', Rule::in(['ahorros', 'corriente'])],
             'account_number' => ['nullable', 'string', 'max:60'],
+            'eps' => ['nullable', 'string', 'max:120'],
+            'arl' => ['nullable', 'string', 'max:120'],
             'contract_start_date' => ['nullable', 'date'],
         ]);
 
@@ -146,6 +148,8 @@ class OperativeController extends Controller
                     'financial_institution' => $validated['financial_institution'] ?? null,
                     'account_type' => $validated['account_type'] ?? null,
                     'account_number' => $validated['account_number'] ?? null,
+                    'eps' => $validated['eps'] ?? null,
+                    'arl' => $validated['arl'] ?? null,
                     'contract_start_date' => $validated['contract_start_date'] ?? null,
                     'is_active' => $validated['is_active'] ?? true,
                 ]);
@@ -205,6 +209,8 @@ class OperativeController extends Controller
             'financial_institution' => ['nullable', 'string', 'max:120'],
             'account_type' => ['nullable', Rule::in(['ahorros', 'corriente'])],
             'account_number' => ['nullable', 'string', 'max:60'],
+            'eps' => ['nullable', 'string', 'max:120'],
+            'arl' => ['nullable', 'string', 'max:120'],
             'contract_start_date' => ['nullable', 'date'],
             'is_active' => ['sometimes', 'boolean'],
             'full_name' => ['sometimes', 'string', 'max:255'],
@@ -253,6 +259,8 @@ class OperativeController extends Controller
                 'financial_institution',
                 'account_type',
                 'account_number',
+                'eps',
+                'arl',
                 'contract_start_date',
                 'is_active',
             ])->all();
@@ -375,6 +383,8 @@ class OperativeController extends Controller
             'financial_institution' => $operative->financial_institution,
             'account_type' => $operative->account_type,
             'account_number' => $operative->account_number,
+            'eps' => $operative->eps,
+            'arl' => $operative->arl,
             'contract_start_date' => $operative->contract_start_date,
             'is_active' => $operative->is_active,
             'created_at' => $operative->created_at,

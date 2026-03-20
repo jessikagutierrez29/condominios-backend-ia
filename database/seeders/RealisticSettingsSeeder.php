@@ -400,6 +400,8 @@ class RealisticSettingsSeeder extends Seeder
                 'salary' => 1900000,
                 'account_type' => 'ahorros',
                 'account_number' => '1122334455',
+                'eps' => 'Sanitas',
+                'arl' => 'Sura',
             ],
             [
                 'full_name' => 'Angela Maria Ruiz',
@@ -412,6 +414,8 @@ class RealisticSettingsSeeder extends Seeder
                 'salary' => 1900000,
                 'account_type' => 'ahorros',
                 'account_number' => '1122334456',
+                'eps' => 'Nueva EPS',
+                'arl' => 'Positiva',
             ],
             [
                 'full_name' => 'Diana Marcela Gomez',
@@ -424,6 +428,8 @@ class RealisticSettingsSeeder extends Seeder
                 'salary' => 1650000,
                 'account_type' => 'ahorros',
                 'account_number' => '1122334457',
+                'eps' => 'Compensar',
+                'arl' => 'Colmena',
             ],
             [
                 'full_name' => 'Sandra Milena Lara',
@@ -436,6 +442,8 @@ class RealisticSettingsSeeder extends Seeder
                 'salary' => 1580000,
                 'account_type' => 'ahorros',
                 'account_number' => '1122334458',
+                'eps' => 'Famisanar',
+                'arl' => 'Bolivar',
             ],
             [
                 'full_name' => 'Hector Fabian Nino',
@@ -448,6 +456,8 @@ class RealisticSettingsSeeder extends Seeder
                 'salary' => 2100000,
                 'account_type' => 'corriente',
                 'account_number' => '5566778899',
+                'eps' => 'Sura',
+                'arl' => 'Sura',
             ],
         ];
 
@@ -479,6 +489,8 @@ class RealisticSettingsSeeder extends Seeder
                     'financial_institution' => 'Bancolombia',
                     'account_type' => $row['account_type'],
                     'account_number' => $row['account_number'],
+                    'eps' => $row['eps'] ?? null,
+                    'arl' => $row['arl'] ?? null,
                     'contract_start_date' => now()->subMonths(6)->toDateString(),
                     'is_active' => true,
                 ]

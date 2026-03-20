@@ -78,6 +78,8 @@ class OperativesDemoSeeder extends Seeder
                     'financial_institution' => 'Bancolombia',
                     'account_type' => $index % 2 === 0 ? 'corriente' : 'ahorros',
                     'account_number' => '7700' . str_pad((string) $index, 6, '0', STR_PAD_LEFT),
+                    'eps' => 'EPS Demo ' . str_pad((string) $index, 2, '0', STR_PAD_LEFT),
+                    'arl' => 'ARL Demo ' . str_pad((string) $index, 2, '0', STR_PAD_LEFT),
                     'contract_start_date' => now()->subDays($index * 2)->toDateString(),
                     'is_active' => $index % 4 !== 0,
                 ]);

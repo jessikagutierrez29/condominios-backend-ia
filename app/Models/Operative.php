@@ -20,6 +20,8 @@ class Operative extends Model
         'financial_institution',
         'account_type',
         'account_number',
+        'eps',
+        'arl',
         'contract_start_date',
         'is_active',
     ];

@@ -19,8 +19,24 @@ class UserController extends Controller
     {
         /** @var User $authUser */
         $authUser = $request->user();
+        $validated = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:10'],
+            'q' => ['nullable', 'string', 'max:255'],
+        ]);
 
-        $query = User::query()->with(['roles:id,name']);
+        $query = User::query()->with(['roles:id,name'])
+            ->where('is_platform_admin', false)
+            ->whereDoesntHave('roles', function ($q) {
+                $q->whereIn('name', [
+                    'Super Usuario',
+                    'super_usuario',
+                    'super_admin',
+                    'Administrador Propiedad',
+                    'administrador_propiedad',
+                    'admin_condominio',
+                ]);
+            });
         $activeCondominiumId = (int) $request->attributes->get('activeCondominiumId');
 
         if ($activeCondominiumId > 0) {
@@ -31,7 +47,20 @@ class UserController extends Controller
             $query->whereRaw('1 = 0');
         }
 
-        return response()->json($query->orderByDesc('id')->get());
+        if (! empty($validated['q'])) {
+            $search = trim((string) $validated['q']);
+            $query->where(function ($subQuery) use ($search) {
+                $subQuery->where('full_name', 'like', '%' . $search . '%')
+                    ->orWhere('email', 'like', '%' . $search . '%')
+                    ->orWhere('document_number', 'like', '%' . $search . '%');
+            });
+        }
+
+        $users = $query
+            ->orderByDesc('id')
+            ->paginate((int) ($validated['per_page'] ?? 10), ['*'], 'page', (int) ($validated['page'] ?? 1));
+
+        return response()->json($users);
     }
 
     public function store(Request $request): JsonResponse

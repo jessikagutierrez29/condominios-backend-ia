@@ -35,7 +35,7 @@ class VehiclesDemoSeeder extends Seeder
             ->get();
 
         if ($vehicleTypes->isEmpty() || $apartments->isEmpty()) {
-            $this->command?->warn('Faltan tipos de vehículo o apartamentos en el condominio activo.');
+            $this->command?->warn('Faltan tipos de vehiculo o apartamentos en el condominio activo.');
             return;
         }
 
@@ -44,7 +44,7 @@ class VehiclesDemoSeeder extends Seeder
             ->value('id');
 
         $plates = [];
-        for ($i = 1; $i <= 12; $i++) {
+        for ($i = 1; $i <= 24; $i++) {
             $plates[] = 'DMV26-' . str_pad((string) $i, 3, '0', STR_PAD_LEFT);
         }
 
@@ -83,10 +83,10 @@ class VehiclesDemoSeeder extends Seeder
                 'check_in_at' => $checkInAt,
                 'check_out_at' => null,
                 'status' => 'INSIDE',
-                'observations' => 'Ingreso demo para pruebas de paginación',
+                'observations' => 'Ingreso demo para pruebas de paginacion',
             ]);
         }
 
-        $this->command?->info('Seeder VehiclesDemoSeeder ejecutado: 12 vehículos y 12 ingresos activos creados.');
+        $this->command?->info('Seeder VehiclesDemoSeeder ejecutado: 24 vehiculos y 24 ingresos activos creados.');
     }
 }

@@ -28,30 +28,35 @@ class ReportController extends Controller
         $date = (string) ($validated['date'] ?? now()->toDateString());
 
         $visits = Visit::query()
+            ->with(['apartment.unitType', 'registeredBy'])
             ->where('condominium_id', $activeCondominiumId)
             ->whereDate('created_at', $date)
             ->orderByDesc('id')
             ->get();
 
         $employeeEntries = EmployeeEntry::query()
+            ->with(['operative.user', 'registeredBy'])
             ->where('condominium_id', $activeCondominiumId)
             ->whereDate('check_in_at', $date)
             ->orderByDesc('id')
             ->get();
 
         $vehicleEntries = VehicleEntry::query()
+            ->with(['vehicle', 'registeredBy'])
             ->where('condominium_id', $activeCondominiumId)
             ->whereDate('check_in_at', $date)
             ->orderByDesc('id')
             ->get();
 
         $correspondences = Correspondence::query()
+            ->with(['apartment.unitType', 'receivedBy', 'deliveredBy'])
             ->where('condominium_id', $activeCondominiumId)
             ->whereDate('created_at', $date)
             ->orderByDesc('id')
             ->get();
 
         $cleaningRecords = CleaningRecord::query()
+            ->with(['cleaningArea', 'operative.user', 'registeredBy'])
             ->where('condominium_id', $activeCondominiumId)
             ->whereDate('cleaning_date', $date)
             ->orderByDesc('id')
@@ -66,6 +71,7 @@ class ReportController extends Controller
             ->get();
 
         $emergencies = HealthIncident::query()
+            ->with(['emergencyType'])
             ->where('condominium_id', $activeCondominiumId)
             ->whereDate('event_date', $date)
             ->orderByDesc('id')
